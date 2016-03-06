@@ -30,6 +30,19 @@ anes$black<-as.numeric(gsub("\\..*","",anes$dem_racecps_black))
 ###############
 #Political Vars
 ###############
+#Obama thermometer
+  #Refusals and Ns imputed with mean value
+  anes$ft_dpc[anes$ft_dpc<0]<-round(mean(anes$ft_dpc[anes$ft_dpc>=0]),0)
+
+#Clinton thermometer
+  #Refusals and Ns imputed with mean value
+  anes$ft_hclinton[anes$ft_hclinton<0]<-round(mean(anes$ft_hclinton[anes$ft_hclinton>=0]),0)
+
+#George W Bush thermometer
+  #Refusals and Ns imputed with mean value
+  anes$ft_gwb[anes$ft_gwb<0]<-round(mean(anes$ft_gwb[anes$ft_gwb>=0]),0)
+  
+  
 #Political interest: interest_attention
 anes$pol_inattention<-as.numeric(gsub("\\..*","",anes$interest_attention))
   #DKs and Refusals imputed with mean value
@@ -57,6 +70,8 @@ anes$media_attention<-as.numeric(gsub("\\..*","",anes$prmedia_wkinews))
   anes$media_attention[anes$media_attention<0]<-round(mean(anes$media_attention[anes$media_attention>=0]),0)
 
   
+
+  
 ########################
   ##############
   #######EXERCISE 1
@@ -82,6 +97,7 @@ anes.test<-anes[-train,]
 ## of Clinton's and Bush's feeling thermometer scores
 model1 <- lm(ft_dpc ~ ft_hclinton+ft_gwb, anes.train)
 #summary(model1)
+
 
 
 #######################
@@ -115,29 +131,119 @@ pred3 <- predict(model3, anes.test)
 #######EXERCISE 3
 ##############
 ########################
-library(plyr)
-
-pred.matrix<-as.matrix(cbind(pred1,pred2,pred3))
-Y.test<-anes.test$ft_dpc
-?apply
-test<-t(aaply(pred.matrix,2,function(x,y) abs(y-x), y=Y.test))
-
-a=e/abs(y)
-
-test2<-
+#Training
+#e's
+#test<-t(aaply(pred.matrix,2,function(x,y) abs(y-x), y=Y.test))
+#a's
+#test2<-t(aaply(test,2,function(x,y) x/abs(y+.01)*100, y=Y.test))
 
 
 
 fit.stats<-function(Y,preds){
-  #Creates matrix with 
+  #Creates matrix with abs error (each column corresponding to each prediction)
   e<-t(aaply(preds,2,function(x,y) abs(y-x), y=Y))
+  #Creates matrix with abs percentage error  (each column corresponding to each prediction)
+    #Since the outcome variable can be 0 I added .01 to make the calculation possible
   a<-t(aaply(e,2,function(x,y) x/abs(y+.01)*100, y=Y))
   
   #RMSE
+  RMSE<-apply(e,2,function(x) sum(x^2)/length(x))
   #MAD
+  MAD<-apply(e,2,median)
   #RMSLE
+    #Here the function does not allow negative predited values so I transformed negative values into 0s
+    new.preds<-ifelse(preds<0,0,preds)
+  RMSLE<-apply(new.preds,2,function(x,y) sqrt( sum((log(x+1)-log(y+1))^2) / length(x)), y=(Y))
   #MAPE
+  MAPE<-apply(a,2,function(x) sum(x)/length(x))
   #MEAPE
+  MEAPE<-apply(a,2,median)
+  return(cbind(RMSE,MAD,RMSLE,MAPE,MEAPE))
 }
+
+#Now testing
+pred.matrix<-as.matrix(cbind(Model1=pred1,Model2=pred2,Model3=pred3))
+Y.test<-anes.test$ft_dpc
+fit.stats(Y.test,pred.matrix)
+
+R<-TRUE
+M<-FALSE
+C<-F
+D<-T
+L<-T
+test<-c(R,M,C,D,L)*1
+which(test==1)
+
+x<-as.vector(c(RMSE=TRUE, MAD=TRUE, RMSLE=TRUE, MAPE=TRUE, MEAPE=FALSE))
+x*1
+
+########################
+##############
+#######EXERCISE 4
+##############
+########################
+
+fit.stats<-function(Y,preds, rmse=TRUE, mad=TRUE, rmsle=TRUE, mape=TRUE, meape=TRUE){
+  #Creates matrix with abs error (each column corresponding to each prediction)
+  e<-t(aaply(preds,2,function(x,y) abs(y-x), y=Y))
+  #Creates matrix with abs percentage error  (each column corresponding to each prediction)
+  #Since the outcome variable can be 0 I added .01 to make the calculation possible
+  a<-t(aaply(e,2,function(x,y) x/abs(y+.01)*100, y=Y))
+  
+  #RMSE
+  RMSE<-apply(e,2,function(x) sum(x^2)/length(x))
+  #MAD
+  MAD<-apply(e,2,median)
+  #RMSLE
+  #Here the function does not allow negative predited values so I transformed negative values into 0s
+  new.preds<-ifelse(preds<0,0,preds)
+  RMSLE<-apply(new.preds,2,function(x,y) sqrt( sum((log(x+1)-log(y+1))^2) / length(x)), y=(Y))
+  #MAPE
+  MAPE<-apply(a,2,function(x) sum(x)/length(x))
+  #MEAPE
+  MEAPE<-apply(a,2,median)
+  
+  #TO PRINT
+  #This is the full matrix with outputs
+  output<-cbind(RMSE,MAD,RMSLE,MAPE,MEAPE)
+  
+  #Here I identify which stats the user wants to see
+    #Lower case stats are the arguments of the function
+  stats.to.print<-c(rmse,mad,rmsle,mape,meape)*1
+  
+  #Finally, printing
+  ifelse (stats.to.print > 0, return(output[,which(stats.to.print==1)]), 
+         return("If you don't feel like getting some fit statistics, that's fine with me."))
+ }
+
+
+#Now testing
+#Here the full thing
+fit.stats(Y.test,pred.matrix)
+
+
+#Here without the first one
+fit.stats(Y.test,pred.matrix,rmse=F)
+
+#Here only with measure starting with M
+fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F)
+
+
+#Here with just with MEAPE
+fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F)
+
+#Here what happens when you are too picky
+fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F, meape=F)
+
+
+########################
+##############
+#######EXERCISE 5
+##############
+########################
+fit.stats(Y.test,pred.matrix)
+
+#The first models has the smaller values in all five statistics, followed by the third model.
+
 
 
