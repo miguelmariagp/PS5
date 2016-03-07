@@ -2,6 +2,7 @@
 
 options(stringsAsFactors=F)
 library(foreign)
+library(plyr)
 ## read in data
 anes <- read.dta("C:/Users/ststest/Dropbox/Spr16/Programming/HW5/PS5/anes_timeseries_2012_stata12.dta")
 
@@ -183,7 +184,7 @@ x*1
 ##############
 ########################
 
-fit.stats<-function(Y,preds, rmse=TRUE, mad=TRUE, rmsle=TRUE, mape=TRUE, meape=TRUE){
+fit.stats.flexible<-function(Y,preds, rmse=TRUE, mad=TRUE, rmsle=TRUE, mape=TRUE, meape=TRUE){
   #Creates matrix with abs error (each column corresponding to each prediction)
   e<-t(aaply(preds,2,function(x,y) abs(y-x), y=Y))
   #Creates matrix with abs percentage error  (each column corresponding to each prediction)
@@ -219,21 +220,21 @@ fit.stats<-function(Y,preds, rmse=TRUE, mad=TRUE, rmsle=TRUE, mape=TRUE, meape=T
 
 #Now testing
 #Here the full thing
-fit.stats(Y.test,pred.matrix)
+fit.stats.flexible(Y.test,pred.matrix)
 
 
 #Here without the first one
-fit.stats(Y.test,pred.matrix,rmse=F)
+fit.stats.flexible(Y.test,pred.matrix,rmse=F)
 
 #Here only with measure starting with M
-fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F)
+fit.stats.flexible(Y.test,pred.matrix,rmse=F,rmsle=F)
 
 
 #Here with just with MEAPE
-fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F)
+fit.stats.flexible(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F)
 
 #Here what happens when you are too picky
-fit.stats(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F, meape=F)
+fit.stats.flexible(Y.test,pred.matrix,rmse=F,rmsle=F, mad=F, mape=F, meape=F)
 
 
 ########################
@@ -246,4 +247,56 @@ fit.stats(Y.test,pred.matrix)
 #The first models has the smaller values in all five statistics, followed by the third model.
 
 
+########################
+##############
+#######EXERCISE 6
+##############
+########################
+
+x<-lm(Y.test~rnorm(length(Y.test),50,4))$fitted
+median(abs(x-Y.test))
+
+fit.stats.extra<-function(Y,preds, R=lm(Y~rnorm(length(Y),50,4))$fitted,
+                          rmse=TRUE, mad=TRUE, rmsle=TRUE, mape=TRUE, meape=TRUE, mrae=TRUE){
+  #Creates matrix with abs error (each column corresponding to each prediction)
+  e<-t(aaply(preds,2,function(x,y) abs(y-x), y=Y))
+  #Creates matrix with abs percentage error  (each column corresponding to each prediction)
+  #Since the outcome variable can be 0 I added .01 to make the calculation possible
+  a<-t(aaply(e,2,function(x,y) x/abs(y+.01)*100, y=Y))
+  
+  #RMSE
+  RMSE<-apply(e,2,function(x) sum(x^2)/length(x))
+  #MAD
+  MAD<-apply(e,2,median)
+  #RMSLE
+  #Here the function does not allow negative predited values so I transformed negative values into 0s
+  new.preds<-ifelse(preds<0,0,preds)
+  RMSLE<-apply(new.preds,2,function(x,y) sqrt( sum((log(x+1)-log(y+1))^2) / length(x)), y=(Y))
+  #MAPE
+  MAPE<-apply(a,2,function(x) sum(x)/length(x))
+  #MEAPE
+  MEAPE<-apply(a,2,median)
+  #MRAE
+  b<-abs(R-Y)
+  MRAE<-apply(e,2,function(x,y) median(x/y), y=b)
+  
+  #TO PRINT
+  #This is the full matrix with outputs
+  output<-cbind(RMSE,MAD,RMSLE,MAPE,MEAPE,MRAE)
+  
+  #Here I identify which stats the user wants to see
+  #Lower case stats are the arguments of the function
+  stats.to.print<-c(rmse,mad,rmsle,mape,meape,mrae)*1
+  
+  #Finally, printing
+  ifelse (stats.to.print > 0, return(output[,which(stats.to.print==1)]), 
+          return("If you don't feel like getting some fit statistics, that's fine with me."))
+}
+
+#With the default naive estimator
+fit.stats.extra(Y.test,pred.matrix)
+
+#With an absurd forecast
+nv<-runif(length(Y.test),0,100)
+fit.stats.extra(Y.test,pred.matrix,R=nv)
 
